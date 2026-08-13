@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Gastos MDSS</title>
+  <meta name="theme-color" content="#14532d" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Gastos MDSS</h1>
+  </header>
+
+  <main id="app">
+    <section id="view-reportes" class="view active">
+      <div class="filter-bar">
+        <div class="pill-group" id="periodPills">
+          <button class="pill active" data-period="mes">Este mes</button>
+          <button class="pill" data-period="mesPasado">Mes pasado</button>
+          <button class="pill" data-period="3meses">Últimos 3 meses</button>
+          <button class="pill" data-period="todo">Todo</button>
+        </div>
+        <select id="categoriaSelect" class="category-select">
+          <option value="">Todas las categorías</option>
+        </select>
+        <div class="pill-group" id="currencyToggle">
+          <button class="pill active" data-currency="L">L</button>
+          <button class="pill" data-currency="$">$</button>
+        </div>
+      </div>
+
+      <div class="cards" id="kpiCards">
+        <div class="card card-ingreso">
+          <span class="card-label">Ingresos</span>
+          <span class="card-value" id="kpiIngresos">L 0.00</span>
+        </div>
+        <div class="card card-gasto">
+          <span class="card-label">Gastos</span>
+          <span class="card-value" id="kpiGastos">L 0.00</span>
+        </div>
+        <div class="card card-balance">
+          <span class="card-label">Balance</span>
+          <span class="card-value" id="kpiBalance">L 0.00</span>
+        </div>
+        <div class="card" id="kpiAhorroCard">
+          <span class="card-label">Tasa de ahorro</span>
+          <span class="card-value" id="kpiAhorro">0%</span>
+        </div>
+        <div class="card">
+          <span class="card-label" id="kpiPromedioLabel">Gasto promedio diario</span>
+          <span class="card-value" id="kpiPromedio">L 0.00</span>
+        </div>
+        <div class="card card-hormiga">
+          <span class="card-label">Gastos hormiga</span>
+          <span class="card-value" id="kpiHormigaPct">0%</span>
+          <span class="card-sub" id="kpiHormigaTotal">L 0.00</span>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Gastos por categoría</h3>
+        <div class="chart-legend" id="legendCategoria"></div>
+        <div id="chartCategoria"></div>
+        <p class="chart-empty" id="chartCategoriaEmpty" style="display:none">Sin gastos en este período.</p>
+      </div>
+
+      <div class="chart-card">
+        <div class="detail-header">
+          <h3>Detalle de gastos <span class="count-badge" id="detalleCount"></span></h3>
+          <input type="search" id="buscarDescripcion" class="search-input" placeholder="Buscar por descripción..." />
+        </div>
+        <p class="chart-empty-note">Muestra todo tu historial en el Sheet, sin importar el período de arriba.</p>
+        <div class="filter-chip" id="filtroCategoriaChip" style="display:none">
+          <span id="filtroCategoriaTexto"></span>
+          <button id="limpiarFiltroCategoria" aria-label="Quitar filtro">✕</button>
+        </div>
+        <div class="table-wrap table-scroll">
+          <table id="tablaDetalle">
+            <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="chart-empty" id="tablaDetalleEmpty" style="display:none">Sin resultados.</p>
+      </div>
+
+      <div class="chart-card">
+        <h3 id="chartPeriodoTitulo">Gastos por semana</h3>
+        <div id="chartPeriodo"></div>
+        <p class="chart-empty" id="chartPeriodoEmpty" style="display:none">Sin datos suficientes.</p>
+      </div>
+
+      <h2 class="section-heading">Tendencia reciente</h2>
+
+      <div class="cards">
+        <div class="card">
+          <span class="card-label">Gastos mes pasado</span>
+          <span class="card-value" id="repGastosMesAnterior">L 0.00</span>
+        </div>
+        <div class="card" id="repVariacionCard">
+          <span class="card-label">Variación vs. mes pasado</span>
+          <span class="card-value" id="repVariacion">0%</span>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Comparación por categoría vs. mes pasado</h3>
+        <div class="chart-legend" id="legendComparacion"></div>
+        <div id="chartComparacion"></div>
+        <p class="chart-empty" id="chartComparacionEmpty" style="display:none">Sin datos suficientes para comparar.</p>
+      </div>
+
+      <div class="chart-card">
+        <h3>Tendencia (últimos 6 meses)</h3>
+        <div class="chart-legend" id="legendTendencia"></div>
+        <div id="chartTendencia"></div>
+        <p class="chart-empty" id="chartTendenciaEmpty" style="display:none">Aún no hay suficiente historial.</p>
+      </div>
+
+      <div class="chart-card">
+        <h3>Categorías que más cambiaron vs. mes pasado</h3>
+        <ul class="movers-list" id="listaMovers"></ul>
+        <p class="chart-empty" id="listaMoversEmpty" style="display:none">Sin datos suficientes para comparar.</p>
+      </div>
+
+      <div class="chart-card">
+        <h3>Top gastos hormiga (este mes)</h3>
+        <div class="table-wrap">
+          <table id="tablaHormiga">
+            <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-codabi" class="view">
+      <h2>CODABI</h2>
+      <div class="cards">
+        <div class="card card-ingreso">
+          <span class="card-label">Ingresos CODABI</span>
+          <span class="card-value" id="codabiIngresos">L 0.00</span>
+        </div>
+        <div class="card card-gasto">
+          <span class="card-label">Gastos CODABI</span>
+          <span class="card-value" id="codabiGastos">L 0.00</span>
+        </div>
+        <div class="card">
+          <span class="card-label">Balance CODABI</span>
+          <span class="card-value" id="codabiBalance">L 0.00</span>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Salud financiera</h3>
+        <div class="health-row">
+          <span class="health-badge" id="codabiSaludBadge">—</span>
+          <div class="health-metrics">
+            <div><span class="card-label">Margen neto</span><br /><span class="card-value" id="codabiMargen">0%</span></div>
+            <div><span class="card-label">Cobertura ingreso/gasto</span><br /><span class="card-value" id="codabiCobertura">0x</span></div>
+          </div>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <span class="card-label">Ingreso promedio / mes activo</span>
+            <span class="card-value" id="codabiIngresoProm">L 0.00</span>
+          </div>
+          <div class="card">
+            <span class="card-label">Gasto promedio / mes activo</span>
+            <span class="card-value" id="codabiGastoProm">L 0.00</span>
+          </div>
+          <div class="card" id="codabiVariacionCard">
+            <span class="card-label">Variación vs. mes pasado</span>
+            <span class="card-value" id="codabiVariacion">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Ingresos vs. gastos por mes</h3>
+        <div class="chart-legend" id="legendCodabi"></div>
+        <div id="chartCodabi"></div>
+        <p class="chart-empty" id="chartCodabiEmpty" style="display:none">Sin movimientos de CODABI todavía.</p>
+      </div>
+
+      <div class="chart-card">
+        <h3>Balance neto por mes (rendimiento)</h3>
+        <div id="chartCodabiBalance"></div>
+        <p class="chart-empty" id="chartCodabiBalanceEmpty" style="display:none">Sin movimientos de CODABI todavía.</p>
+      </div>
+
+      <h3>Movimientos CODABI</h3>
+      <div class="table-wrap">
+        <table id="tablaCodabi">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Monto</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-dashboard" class="view">
+      <div class="cards">
+        <div class="card card-ingreso">
+          <span class="card-label">Ingresos del mes</span>
+          <span class="card-value" id="totalIngresosMes">L 0.00</span>
+        </div>
+        <div class="card card-gasto">
+          <span class="card-label">Gastos del mes</span>
+          <span class="card-value" id="totalGastosMes">L 0.00</span>
+        </div>
+        <div class="card card-balance">
+          <span class="card-label">Balance del mes</span>
+          <span class="card-value" id="balanceMes">L 0.00</span>
+        </div>
+        <div class="card card-hormiga">
+          <span class="card-label">Gastos hormiga (mes)</span>
+          <span class="card-value" id="totalHormigaMes">L 0.00</span>
+        </div>
+      </div>
+
+      <h2>Movimientos recientes</h2>
+      <div class="table-wrap">
+        <table id="tablaRecientes">
+          <thead>
+            <tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Monto L</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-gastos" class="view">
+      <h2>Nuevo gasto</h2>
+      <form id="formGasto" class="form-card">
+        <label>Fecha <input type="date" name="fecha" required /></label>
+        <label>Cuenta <input type="text" name="cuenta" placeholder="Efectivo, Tarjeta..." required /></label>
+        <label>Categoría <input type="text" name="categoria" placeholder="Comida, Transporte..." required /></label>
+        <label>Descripción <input type="text" name="descripcion" placeholder="Opcional" /></label>
+        <label>Moneda
+          <select name="moneda" required>
+            <option value="L">Lempiras (L)</option>
+            <option value="$">Dólares ($)</option>
+          </select>
+        </label>
+        <label>Monto <input type="number" step="0.01" min="0" name="monto" required /></label>
+        <label class="checkbox">
+          <input type="checkbox" name="esHormiga" />
+          ¿Es un gasto hormiga? (pequeño / impulsivo)
+        </label>
+        <button type="submit">Guardar gasto</button>
+        <p class="form-msg" id="msgGasto"></p>
+      </form>
+
+      <h2>Historial de gastos</h2>
+      <div class="table-wrap">
+        <table id="tablaGastos">
+          <thead>
+            <tr><th>Fecha</th><th>Cuenta</th><th>Categoría</th><th>Moneda</th><th>Monto</th><th>L</th><th>$</th><th>Hormiga</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-ingresos" class="view">
+      <h2>Nuevo ingreso</h2>
+      <form id="formIngreso" class="form-card">
+        <label>Fecha <input type="date" name="fecha" required /></label>
+        <label>Medio <input type="text" name="medio" placeholder="Transferencia, Efectivo..." required /></label>
+        <label>Cliente <input type="text" name="cliente" placeholder="Opcional" /></label>
+        <label>Moneda
+          <select name="moneda" required>
+            <option value="L">Lempiras (L)</option>
+            <option value="$">Dólares ($)</option>
+          </select>
+        </label>
+        <label>Monto <input type="number" step="0.01" min="0" name="monto" required /></label>
+        <button type="submit">Guardar ingreso</button>
+        <p class="form-msg" id="msgIngreso"></p>
+      </form>
+
+      <h2>Historial de ingresos</h2>
+      <div class="table-wrap">
+        <table id="tablaIngresos">
+          <thead>
+            <tr><th>Fecha</th><th>Medio</th><th>Cliente</th><th>Moneda</th><th>Monto</th><th>L</th><th>$</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-config" class="view">
+      <h2>Configuración</h2>
+      <form id="formConfig" class="form-card">
+        <label>Tipo de cambio (L por $1)
+          <input type="number" step="0.01" min="0" name="tipoCambio" required />
+        </label>
+        <button type="submit">Guardar</button>
+        <p class="form-msg" id="msgConfig"></p>
+      </form>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-view="reportes">Reportes</button>
+    <button class="tab-btn" data-view="codabi">CODABI</button>
+  </nav>
+
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

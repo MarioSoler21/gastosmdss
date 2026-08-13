@@ -1,0 +1,3 @@
+credentials/
+.env
+server/data/config.json
