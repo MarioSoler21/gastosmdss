@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gastos-mdss-v3';
+const CACHE_NAME = 'gastos-mdss-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -6,7 +6,10 @@ const APP_SHELL = [
   '/js/app.js',
   '/js/charts.js',
   '/manifest.json',
-  '/icons/icon.svg',
+  '/icons/footprint-32.png',
+  '/icons/footprint-180.png',
+  '/icons/footprint-192.png',
+  '/icons/footprint-512.png',
 ];
 
 self.addEventListener('install', (event) => {
