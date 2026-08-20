@@ -359,6 +359,69 @@ function renderStackedColChart(svgContainer, cols, opts = {}) {
 }
 
 /**
+ * Giant grouped column chart — every category gets its own bar per period, side by side
+ * (horizontally scrollable, sized generously). cols: [{ label, bars: [{ value, color, seriesLabel }] }]
+ */
+function renderGiantGroupedColChart(svgContainer, cols, opts = {}) {
+  const height = opts.height ?? 420;
+  const barWidth = opts.barWidth ?? 20;
+  const barGap = opts.barGap ?? 3;
+  const groupGap = opts.groupGap ?? 34;
+  const minWidth = opts.minWidth ?? 560;
+  const symbol = opts.symbol ?? 'L';
+  const topPad = 26;
+  const bottomPad = 32;
+  const chartAreaHeight = height - topPad - bottomPad;
+  const seriesCount = Math.max(1, ...cols.map((c) => c.bars.length));
+  const groupWidth = seriesCount * barWidth + (seriesCount - 1) * barGap;
+  const step = groupWidth + groupGap;
+  const width = Math.max(minWidth, 20 + cols.length * step);
+  const maxValue = Math.max(1, ...cols.flatMap((c) => c.bars.map((b) => b.value)));
+
+  svgContainer.innerHTML = '';
+  const svg = el('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img' }, true);
+
+  const baseline = el('line', {
+    x1: 10, y1: height - bottomPad, x2: width - 10, y2: height - bottomPad, class: 'chart-baseline',
+  }, true);
+  svg.appendChild(baseline);
+
+  cols.forEach((col, i) => {
+    const groupStart = 10 + groupGap / 2 + i * step;
+
+    col.bars.forEach((bar, j) => {
+      const barX = groupStart + j * (barWidth + barGap);
+      const barH = Math.max(2, (bar.value / maxValue) * chartAreaHeight);
+      const barY = height - bottomPad - barH;
+      const rect = el('rect', {
+        x: barX, y: barY, width: barWidth, height: barH,
+        rx: 3, ry: 3, fill: bar.color, class: 'chart-bar', tabindex: 0,
+        role: 'img', 'aria-label': `${col.label} ${bar.seriesLabel || ''}: ${fmtFull(bar.value, symbol)}`,
+      }, true);
+      svg.appendChild(rect);
+
+      const showTip = (evt) => {
+        rect.classList.add('hovered');
+        showTooltip(evt, buildTooltipHtml([{ color: bar.color, label: bar.seriesLabel || col.label, value: fmtFull(bar.value, symbol) }]));
+      };
+      rect.addEventListener('pointermove', showTip);
+      rect.addEventListener('pointerenter', showTip);
+      rect.addEventListener('focus', (e) => showTip({ clientX: rect.getBoundingClientRect().right, clientY: rect.getBoundingClientRect().top }));
+      rect.addEventListener('pointerleave', () => { rect.classList.remove('hovered'); hideTooltip(); });
+      rect.addEventListener('blur', () => { rect.classList.remove('hovered'); hideTooltip(); });
+    });
+
+    const catLabel = el('text', {
+      x: groupStart + groupWidth / 2, y: height - bottomPad + 18, 'text-anchor': 'middle', class: 'chart-axis-label',
+    }, true);
+    catLabel.textContent = col.label;
+    svg.appendChild(catLabel);
+  });
+
+  svgContainer.appendChild(svg);
+}
+
+/**
  * Vertical column chart. cols: [{ label, value, color }]
  */
 function renderColChart(svgContainer, cols, opts = {}) {

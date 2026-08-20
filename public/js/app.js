@@ -391,6 +391,17 @@ function buildCategoryColorMap(gastos) {
   return map;
 }
 
+const CATEGORY_PALETTE_FULL = [
+  'var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)',
+  'var(--series-5)', 'var(--series-6)', 'var(--series-7)', 'var(--series-8)',
+];
+
+function colorParaIndice(i) {
+  if (i < CATEGORY_PALETTE_FULL.length) return CATEGORY_PALETTE_FULL[i];
+  const hue = (i * 47) % 360;
+  return `hsl(${hue}, 62%, 55%)`;
+}
+
 function sumBy(list, keyFn, valueFn) {
   const totals = {};
   list.forEach((item) => { const k = keyFn(item); totals[k] = (totals[k] || 0) + valueFn(item); });
@@ -559,29 +570,20 @@ function renderReportes() {
     document.getElementById('legendMatriz').innerHTML = '';
   } else {
     matrizEmpty.style.display = 'none';
-    const todasCategorias = Object.keys(colorMap);
-    const catsMatriz = filters.categoria ? [filters.categoria] : todasCategorias.slice(0, 6);
-    const otrasIncluidas = !filters.categoria && todasCategorias.length > 6;
+    const catsMatriz = filters.categoria ? [filters.categoria] : Object.keys(colorMap);
+    const coloresMatriz = {};
+    catsMatriz.forEach((cat, i) => { coloresMatriz[cat] = colorParaIndice(i); });
     const matrizCols = monthKeysMatriz.map((k) => {
       const gastosMes = matrizGastos.filter((g) => monthKey(g.fecha) === k);
       const bars = catsMatriz.map((cat) => ({
         value: gastosMes.filter((g) => g.categoria === cat).reduce((s, g) => s + Number(g[field] || 0), 0),
-        color: colorMap[cat] || 'var(--series-1)',
+        color: coloresMatriz[cat],
         seriesLabel: cat,
       }));
-      if (otrasIncluidas) {
-        bars.push({
-          value: gastosMes.filter((g) => !catsMatriz.includes(g.categoria)).reduce((s, g) => s + Number(g[field] || 0), 0),
-          color: 'var(--series-other)',
-          seriesLabel: 'Otras',
-        });
-      }
       return { label: monthKeyLabel(k), bars };
     });
-    renderStackedColChart(matrizContainer, matrizCols, { symbol: sym });
-    const legendItems = catsMatriz.map((cat) => ({ color: colorMap[cat] || 'var(--series-1)', label: cat }));
-    if (otrasIncluidas) legendItems.push({ color: 'var(--series-other)', label: 'Otras' });
-    renderLegend(document.getElementById('legendMatriz'), legendItems);
+    renderGiantGroupedColChart(matrizContainer, matrizCols, { symbol: sym });
+    renderLegend(document.getElementById('legendMatriz'), catsMatriz.map((cat) => ({ color: coloresMatriz[cat], label: cat })));
   }
 
   const mesActual = MESES[new Date().getMonth()];
