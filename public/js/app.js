@@ -101,7 +101,8 @@ const MESES = [
 
 function parseFechaSheet(fechaStr) {
   if (!fechaStr) return null;
-  const d = new Date(fechaStr);
+  const soloFecha = /^\d{4}-\d{2}-\d{2}$/.test(fechaStr);
+  const d = new Date(soloFecha ? `${fechaStr}T00:00:00` : fechaStr);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -185,6 +186,14 @@ function diasDeLaSemana(lunesISO) {
   return dias;
 }
 
+function hoyISOLocal() {
+  const n = new Date();
+  const y = n.getFullYear();
+  const m = String(n.getMonth() + 1).padStart(2, '0');
+  const d = String(n.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function semanaRangoLabel(lunesISO) {
   const inicio = new Date(`${lunesISO}T00:00:00`);
   const fin = new Date(inicio);
@@ -212,7 +221,7 @@ function renderDiasPorSemana(gastosFiltrados, sym, field, container, emptyEl) {
   });
   const MAX_SEMANAS = 20;
   const semanasKeys = Object.keys(porSemana).sort((a, b) => b.localeCompare(a)).slice(0, MAX_SEMANAS);
-  const hoyISO = new Date().toISOString().slice(0, 10);
+  const hoyISO = hoyISOLocal();
 
   container.innerHTML = '';
   semanasKeys.forEach((lunes) => {
