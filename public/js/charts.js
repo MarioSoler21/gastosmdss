@@ -291,6 +291,74 @@ function renderDivergingColChart(svgContainer, cols, opts = {}) {
 }
 
 /**
+ * Giant stacked column chart — categories stacked per period, meant to compare
+ * many periods side by side (horizontally scrollable). cols: [{ label, bars: [{ value, color, seriesLabel }] }]
+ */
+function renderStackedColChart(svgContainer, cols, opts = {}) {
+  const height = opts.height ?? 320;
+  const barWidth = opts.barWidth ?? 46;
+  const gap = opts.gap ?? 26;
+  const minWidth = opts.minWidth ?? 560;
+  const width = Math.max(minWidth, cols.length * (barWidth + gap) + gap);
+  const symbol = opts.symbol ?? 'L';
+  const topPad = 30;
+  const bottomPad = 30;
+  const chartAreaHeight = height - topPad - bottomPad;
+  const totals = cols.map((c) => c.bars.reduce((s, b) => s + b.value, 0));
+  const maxValue = Math.max(1, ...totals);
+
+  svgContainer.innerHTML = '';
+  const svg = el('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img' }, true);
+
+  const baseline = el('line', {
+    x1: 10, y1: height - bottomPad, x2: width - 10, y2: height - bottomPad, class: 'chart-baseline',
+  }, true);
+  svg.appendChild(baseline);
+
+  cols.forEach((col, i) => {
+    const cx = 10 + gap / 2 + i * (barWidth + gap) + barWidth / 2;
+    let cursorY = height - bottomPad;
+    const visibleBars = col.bars.filter((b) => b.value > 0);
+
+    visibleBars.forEach((bar) => {
+      const barH = Math.max(2, (bar.value / maxValue) * chartAreaHeight);
+      const barY = cursorY - barH;
+      const rect = el('rect', {
+        x: cx - barWidth / 2, y: barY, width: barWidth, height: barH,
+        fill: bar.color, class: 'chart-bar', tabindex: 0,
+        role: 'img', 'aria-label': `${col.label} ${bar.seriesLabel || ''}: ${fmtFull(bar.value, symbol)}`,
+      }, true);
+      svg.appendChild(rect);
+      cursorY = barY;
+
+      const showTip = (evt) => {
+        rect.classList.add('hovered');
+        showTooltip(evt, buildTooltipHtml(visibleBars.map((b) => ({ color: b.color, label: b.seriesLabel || col.label, value: fmtFull(b.value, symbol) }))));
+      };
+      rect.addEventListener('pointermove', showTip);
+      rect.addEventListener('pointerenter', showTip);
+      rect.addEventListener('focus', (e) => showTip({ clientX: rect.getBoundingClientRect().right, clientY: rect.getBoundingClientRect().top }));
+      rect.addEventListener('pointerleave', () => { rect.classList.remove('hovered'); hideTooltip(); });
+      rect.addEventListener('blur', () => { rect.classList.remove('hovered'); hideTooltip(); });
+    });
+
+    const totalLabel = el('text', {
+      x: cx, y: cursorY - 8, 'text-anchor': 'middle', class: 'chart-value-outside',
+    }, true);
+    totalLabel.textContent = fmtCompact(totals[i], symbol);
+    svg.appendChild(totalLabel);
+
+    const catLabel = el('text', {
+      x: cx, y: height - bottomPad + 16, 'text-anchor': 'middle', class: 'chart-axis-label',
+    }, true);
+    catLabel.textContent = col.label;
+    svg.appendChild(catLabel);
+  });
+
+  svgContainer.appendChild(svg);
+}
+
+/**
  * Vertical column chart. cols: [{ label, value, color }]
  */
 function renderColChart(svgContainer, cols, opts = {}) {

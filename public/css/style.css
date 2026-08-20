@@ -387,3 +387,72 @@ body.codabi-theme .tab-btn.active { color: var(--codabi-accent); }
 
 .chart-bar.clickable { cursor: pointer; }
 .chart-bar.selected { stroke: var(--text); stroke-width: 2; }
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 6px 3px 10px;
+}
+.date-range input[type="date"] {
+  border: none;
+  background: none;
+  padding: 0.25rem 0.1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  width: 108px;
+}
+.date-range input[type="date"]:focus { outline: none; }
+.date-sep { color: var(--muted); font-size: 0.72rem; }
+.date-clear {
+  background: none;
+  color: var(--muted);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.date-clear:active { background: var(--bg); }
+
+.chart-card-giant .chart-scroll {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.chart-card-giant .chart-scroll svg { display: block; }
+
+.table-diario td { position: relative; }
+.td-bar-cell {
+  position: relative;
+  min-width: 150px;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+}
+.td-bar-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.td-bar-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--series-1), color-mix(in srgb, var(--series-1) 70%, transparent));
+  border-radius: 6px;
+  transition: width 0.2s;
+}
+.td-bar-value {
+  position: relative;
+  z-index: 1;
+  padding-left: 0.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.table-diario tbody tr.dia-hoy td:first-child { color: var(--accent); font-weight: 700; }

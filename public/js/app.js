@@ -9,7 +9,7 @@ function esc(s) {
 }
 
 const state = { gastos: [], ingresos: [] };
-const filters = { period: 'mes', currency: 'L', categoria: null, busqueda: '' };
+const filters = { period: 'mes', currency: 'L', categoria: null, busqueda: '', fechaDesde: null, fechaHasta: null };
 
 function montoField() { return filters.currency === 'L' ? 'montoRealL' : 'montoUSD'; }
 
@@ -27,9 +27,35 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 document.querySelectorAll('#periodPills .pill').forEach((btn) => {
   btn.addEventListener('click', () => {
     filters.period = btn.dataset.period;
+    filters.fechaDesde = null;
+    filters.fechaHasta = null;
+    document.getElementById('fechaDesde').value = '';
+    document.getElementById('fechaHasta').value = '';
+    document.getElementById('limpiarFechas').style.display = 'none';
     document.querySelectorAll('#periodPills .pill').forEach((b) => b.classList.toggle('active', b === btn));
     renderReportes();
   });
+});
+
+function onFechaChange() {
+  filters.fechaDesde = document.getElementById('fechaDesde').value || null;
+  filters.fechaHasta = document.getElementById('fechaHasta').value || null;
+  const activo = !!(filters.fechaDesde || filters.fechaHasta);
+  document.querySelectorAll('#periodPills .pill').forEach((b) => b.classList.remove('active'));
+  document.getElementById('limpiarFechas').style.display = activo ? 'inline-flex' : 'none';
+  renderReportes();
+}
+document.getElementById('fechaDesde').addEventListener('change', onFechaChange);
+document.getElementById('fechaHasta').addEventListener('change', onFechaChange);
+document.getElementById('limpiarFechas').addEventListener('click', () => {
+  filters.fechaDesde = null;
+  filters.fechaHasta = null;
+  document.getElementById('fechaDesde').value = '';
+  document.getElementById('fechaHasta').value = '';
+  document.getElementById('limpiarFechas').style.display = 'none';
+  filters.period = 'mes';
+  document.querySelectorAll('#periodPills .pill').forEach((b) => b.classList.toggle('active', b.dataset.period === 'mes'));
+  renderReportes();
 });
 
 document.querySelectorAll('#currencyToggle .pill').forEach((btn) => {
@@ -65,6 +91,8 @@ async function api(path, options) {
   if (!res.ok) throw new Error(data.error || 'Error de red');
   return data;
 }
+
+const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -106,10 +134,41 @@ function monthKeysForPeriod(period) {
   return null;
 }
 
+function filterByDateRange(list) {
+  if (!filters.fechaDesde && !filters.fechaHasta) return list;
+  return list.filter((item) => {
+    if (!item.fecha) return false;
+    if (filters.fechaDesde && item.fecha < filters.fechaDesde) return false;
+    if (filters.fechaHasta && item.fecha > filters.fechaHasta) return false;
+    return true;
+  });
+}
+
 function filterByPeriod(list) {
+  if (filters.fechaDesde || filters.fechaHasta) return filterByDateRange(list);
   const keys = monthKeysForPeriod(filters.period);
   if (!keys) return list;
   return list.filter((item) => keys.includes(monthKey(item.fecha)));
+}
+
+function filterByCategoriaYFecha(list) {
+  const porCategoria = filters.categoria ? list.filter((g) => g.categoria === filters.categoria) : list;
+  return filterByDateRange(porCategoria);
+}
+
+function lunesDeLaSemana(fechaISO) {
+  const d = new Date(`${fechaISO}T00:00:00`);
+  const diaSemana = (d.getDay() + 6) % 7; // lunes = 0
+  d.setDate(d.getDate() - diaSemana);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function semanaLabel(lunesISO) {
+  const d = new Date(`${lunesISO}T00:00:00`);
+  return `${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)}`;
 }
 
 async function refetchAll() {
@@ -314,18 +373,33 @@ function renderReportes() {
   const periodoTitulo = document.getElementById('chartPeriodoTitulo');
   const periodoEmpty = document.getElementById('chartPeriodoEmpty');
   const periodoContainer = document.getElementById('chartPeriodo');
-  const esUnMes = filters.period === 'mes' || filters.period === 'mesPasado';
+  const fechaFiltroActiva = !!(filters.fechaDesde || filters.fechaHasta);
+  const rangoDias = fechaFiltroActiva && filters.fechaDesde && filters.fechaHasta
+    ? (new Date(filters.fechaHasta) - new Date(filters.fechaDesde)) / 86400000
+    : null;
+  const agruparPorSemana = fechaFiltroActiva
+    ? (rangoDias === null || rangoDias <= 45)
+    : (filters.period === 'mes' || filters.period === 'mesPasado');
   const sufijoCategoria = filters.categoria ? ` — ${filters.categoria}` : '';
-  if (esUnMes) {
+  if (agruparPorSemana) {
     periodoTitulo.textContent = `Gastos por semana${sufijoCategoria}`;
-    const totalsSemana = sumBy(gastosFiltrados, (g) => g.semana, (g) => Number(g[field] || 0));
-    const semanas = Object.keys(totalsSemana).sort((a, b) => parseInt(a.replace('Sem ', ''), 10) - parseInt(b.replace('Sem ', ''), 10));
+    let semanas;
+    let totalsSemana;
+    if (fechaFiltroActiva) {
+      totalsSemana = sumBy(gastosFiltrados, (g) => lunesDeLaSemana(g.fecha), (g) => Number(g[field] || 0));
+      semanas = Object.keys(totalsSemana).sort();
+    } else {
+      totalsSemana = sumBy(gastosFiltrados, (g) => g.semana, (g) => Number(g[field] || 0));
+      semanas = Object.keys(totalsSemana).sort((a, b) => parseInt(a.replace('Sem ', ''), 10) - parseInt(b.replace('Sem ', ''), 10));
+    }
     if (semanas.length === 0) {
       periodoContainer.innerHTML = '';
       periodoEmpty.style.display = 'block';
     } else {
       periodoEmpty.style.display = 'none';
-      renderColChart(periodoContainer, semanas.map((s) => ({ label: s, value: totalsSemana[s], color: 'var(--series-1)' })), { symbol: sym });
+      renderColChart(periodoContainer, semanas.map((s) => ({
+        label: fechaFiltroActiva ? semanaLabel(s) : s, value: totalsSemana[s], color: 'var(--series-1)',
+      })), { symbol: sym });
     }
   } else {
     periodoTitulo.textContent = `Gastos por mes${sufijoCategoria}`;
@@ -341,10 +415,74 @@ function renderReportes() {
     }
   }
 
+  const diarioTitulo = document.getElementById('tablaDiarioTitulo');
+  diarioTitulo.textContent = `Gasto por día${sufijoCategoria}`;
+  const totalsDia = sumBy(gastosFiltrados, (g) => g.fecha, (g) => Number(g[field] || 0));
+  delete totalsDia[''];
+  delete totalsDia.undefined;
+  const dias = Object.keys(totalsDia).filter(Boolean).sort((a, b) => b.localeCompare(a));
+  const diarioEmpty = document.getElementById('tablaDiarioEmpty');
+  const hoyISO = new Date().toISOString().slice(0, 10);
+  if (dias.length === 0) {
+    document.querySelector('#tablaDiario tbody').innerHTML = '';
+    diarioEmpty.style.display = 'block';
+  } else {
+    diarioEmpty.style.display = 'none';
+    const maxDia = Math.max(1, ...dias.map((d) => totalsDia[d]));
+    document.querySelector('#tablaDiario tbody').innerHTML = dias.map((d) => {
+      const dt = parseFechaSheet(d);
+      const diaLabel = dt ? DIAS_SEMANA[dt.getDay()] : '';
+      const pct = Math.max(3, (totalsDia[d] / maxDia) * 100);
+      return `<tr class="${d === hoyISO ? 'dia-hoy' : ''}">
+        <td>${esc(d)}</td>
+        <td>${diaLabel}</td>
+        <td class="td-bar-cell">
+          <span class="td-bar-track"><span class="td-bar-fill" style="width:${pct}%"></span></span>
+          <span class="td-bar-value">${fmtMoney(totalsDia[d], sym)}</span>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  const matrizGastos = filterByCategoriaYFecha(gastos);
+  const matrizEmpty = document.getElementById('chartMatrizEmpty');
+  const matrizContainer = document.getElementById('chartMatriz');
+  const monthKeysMatriz = [...new Set(matrizGastos.map((g) => monthKey(g.fecha)).filter(Boolean))].sort().slice(-12);
+  if (monthKeysMatriz.length === 0) {
+    matrizContainer.innerHTML = '';
+    matrizEmpty.style.display = 'block';
+    document.getElementById('legendMatriz').innerHTML = '';
+  } else {
+    matrizEmpty.style.display = 'none';
+    const todasCategorias = Object.keys(colorMap);
+    const catsMatriz = filters.categoria ? [filters.categoria] : todasCategorias.slice(0, 6);
+    const otrasIncluidas = !filters.categoria && todasCategorias.length > 6;
+    const matrizCols = monthKeysMatriz.map((k) => {
+      const gastosMes = matrizGastos.filter((g) => monthKey(g.fecha) === k);
+      const bars = catsMatriz.map((cat) => ({
+        value: gastosMes.filter((g) => g.categoria === cat).reduce((s, g) => s + Number(g[field] || 0), 0),
+        color: colorMap[cat] || 'var(--series-1)',
+        seriesLabel: cat,
+      }));
+      if (otrasIncluidas) {
+        bars.push({
+          value: gastosMes.filter((g) => !catsMatriz.includes(g.categoria)).reduce((s, g) => s + Number(g[field] || 0), 0),
+          color: 'var(--series-other)',
+          seriesLabel: 'Otras',
+        });
+      }
+      return { label: monthKeyLabel(k), bars };
+    });
+    renderStackedColChart(matrizContainer, matrizCols, { symbol: sym });
+    const legendItems = catsMatriz.map((cat) => ({ color: colorMap[cat] || 'var(--series-1)', label: cat }));
+    if (otrasIncluidas) legendItems.push({ color: 'var(--series-other)', label: 'Otras' });
+    renderLegend(document.getElementById('legendMatriz'), legendItems);
+  }
+
   const mesActual = MESES[new Date().getMonth()];
   const mesPrevio = mesAnteriorNombre();
-  const gastosMesActualFijo = gastos.filter((g) => g.mes === mesActual);
-  const gastosMesAnteriorFijo = gastos.filter((g) => g.mes === mesPrevio);
+  const gastosMesActualFijo = gastos.filter((g) => g.mes === mesActual && (!filters.categoria || g.categoria === filters.categoria));
+  const gastosMesAnteriorFijo = gastos.filter((g) => g.mes === mesPrevio && (!filters.categoria || g.categoria === filters.categoria));
   const totalGastosMesFijo = gastosMesActualFijo.reduce((s, g) => s + Number(g[field] || 0), 0);
   const totalGastosMesAnteriorFijo = gastosMesAnteriorFijo.reduce((s, g) => s + Number(g[field] || 0), 0);
   let variacionPct = 0;
@@ -407,7 +545,8 @@ function renderReportes() {
       </li>`).join('');
   }
 
-  const gastosPorMesKey = sumBy(gastos, (g) => monthKey(g.fecha), (g) => Number(g[field] || 0));
+  const gastosParaTendencia = filters.categoria ? gastos.filter((g) => g.categoria === filters.categoria) : gastos;
+  const gastosPorMesKey = sumBy(gastosParaTendencia, (g) => monthKey(g.fecha), (g) => Number(g[field] || 0));
   const ingresosPorMesKey = sumBy(ingresos, (i) => monthKey(i.fecha), (i) => Number(i[field] || 0));
   delete gastosPorMesKey.null; delete ingresosPorMesKey.null;
   const monthKeys = [...new Set([...Object.keys(gastosPorMesKey), ...Object.keys(ingresosPorMesKey)])].sort().slice(-6);
