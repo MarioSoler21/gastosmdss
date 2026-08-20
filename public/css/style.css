@@ -426,33 +426,98 @@ body.codabi-theme .tab-btn.active { color: var(--codabi-accent); }
 }
 .chart-card-giant .chart-scroll svg { display: block; }
 
-.table-diario td { position: relative; }
-.td-bar-cell {
-  position: relative;
-  min-width: 150px;
-  height: 1.6em;
+.semanas-dias-scroll {
+  max-height: 480px;
+  overflow-y: auto;
   display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding-right: 2px;
+}
+.semana-grupo { }
+.semana-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+}
+.semana-header .semana-titulo {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.semana-header .semana-total { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+
+.dias-row {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.dia-block {
+  flex: 1 1 0;
+  min-width: 56px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-}
-.td-bar-track {
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  overflow: hidden;
+  justify-content: flex-end;
+  gap: 0.25rem;
   background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.3rem 0.55rem;
+  height: 108px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
 }
-.td-bar-fill {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  background: linear-gradient(90deg, var(--series-1), color-mix(in srgb, var(--series-1) 70%, transparent));
-  border-radius: 6px;
-  transition: width 0.2s;
+.dia-block:active { background: var(--surface); }
+.dia-block .dia-barra {
+  width: 60%;
+  min-height: 3px;
+  border-radius: 5px 5px 2px 2px;
+  background: var(--series-1);
 }
-.td-bar-value {
-  position: relative;
-  z-index: 1;
-  padding-left: 0.6rem;
+.dia-block .dia-monto { font-size: 0.68rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+.dia-block .dia-nombre { font-size: 0.66rem; color: var(--muted); font-weight: 600; }
+.dia-block.sin-gastos { cursor: default; opacity: 0.45; }
+.dia-block.sin-gastos .dia-monto { color: var(--muted); font-weight: 500; }
+.dia-block.activo { border-color: var(--accent); background: var(--success-bg); }
+.dia-block.activo .dia-barra { background: var(--accent); }
+.dia-block.es-hoy .dia-nombre { color: var(--accent); font-weight: 700; }
+
+.dia-detalle {
+  margin-top: 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.dia-detalle-encabezado {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.dia-detalle-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+.dia-detalle-item .ddi-cat {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
-.table-diario tbody tr.dia-hoy td:first-child { color: var(--accent); font-weight: 700; }
+.dia-detalle-item .ddi-monto { font-weight: 700; white-space: nowrap; }

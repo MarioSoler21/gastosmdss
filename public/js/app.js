@@ -171,6 +171,128 @@ function semanaLabel(lunesISO) {
   return `${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)}`;
 }
 
+function diasDeLaSemana(lunesISO) {
+  const base = new Date(`${lunesISO}T00:00:00`);
+  const dias = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    dias.push(`${y}-${m}-${day}`);
+  }
+  return dias;
+}
+
+function semanaRangoLabel(lunesISO) {
+  const inicio = new Date(`${lunesISO}T00:00:00`);
+  const fin = new Date(inicio);
+  fin.setDate(inicio.getDate() + 6);
+  const iniTxt = `${inicio.getDate()} ${MESES[inicio.getMonth()].slice(0, 3)}`;
+  const finTxt = `${fin.getDate()} ${MESES[fin.getMonth()].slice(0, 3)}`;
+  return `${iniTxt} – ${finTxt}`;
+}
+
+let diaExpandido = null;
+
+function renderDiasPorSemana(gastosFiltrados, sym, field, container, emptyEl) {
+  const conFecha = gastosFiltrados.filter((g) => g.fecha);
+  if (conFecha.length === 0) {
+    container.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  const porSemana = {};
+  conFecha.forEach((g) => {
+    const lunes = lunesDeLaSemana(g.fecha);
+    (porSemana[lunes] = porSemana[lunes] || []).push(g);
+  });
+  const MAX_SEMANAS = 20;
+  const semanasKeys = Object.keys(porSemana).sort((a, b) => b.localeCompare(a)).slice(0, MAX_SEMANAS);
+  const hoyISO = new Date().toISOString().slice(0, 10);
+
+  container.innerHTML = '';
+  semanasKeys.forEach((lunes) => {
+    const gastosSemana = porSemana[lunes];
+    const totalSemana = gastosSemana.reduce((s, g) => s + Number(g[field] || 0), 0);
+    const dias = diasDeLaSemana(lunes);
+    const porDia = {};
+    gastosSemana.forEach((g) => { (porDia[g.fecha] = porDia[g.fecha] || []).push(g); });
+    const maxDia = Math.max(1, ...dias.map((d) => (porDia[d] || []).reduce((s, g) => s + Number(g[field] || 0), 0)));
+
+    const grupo = document.createElement('div');
+    grupo.className = 'semana-grupo';
+
+    const header = document.createElement('div');
+    header.className = 'semana-header';
+    header.innerHTML = `<span class="semana-titulo">Semana del ${semanaRangoLabel(lunes)}</span><span class="semana-total">${fmtMoney(totalSemana, sym)}</span>`;
+    grupo.appendChild(header);
+
+    const row = document.createElement('div');
+    row.className = 'dias-row';
+
+    dias.forEach((fecha) => {
+      const items = porDia[fecha] || [];
+      const sinGastos = items.length === 0;
+      const monto = items.reduce((s, g) => s + Number(g[field] || 0), 0);
+      const dt = parseFechaSheet(fecha);
+      const barPx = sinGastos ? 0 : Math.max(4, Math.round((monto / maxDia) * 60));
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = [
+        'dia-block',
+        sinGastos ? 'sin-gastos' : '',
+        fecha === diaExpandido ? 'activo' : '',
+        fecha === hoyISO ? 'es-hoy' : '',
+      ].filter(Boolean).join(' ');
+      btn.innerHTML = `
+        <span class="dia-barra" style="height:${barPx}px"></span>
+        <span class="dia-monto">${sinGastos ? '—' : fmtCompact(monto, sym)}</span>
+        <span class="dia-nombre">${DIAS_SEMANA[dt.getDay()]} ${dt.getDate()}</span>
+      `;
+      if (!sinGastos) {
+        btn.addEventListener('click', () => {
+          diaExpandido = diaExpandido === fecha ? null : fecha;
+          renderReportes();
+        });
+      }
+      row.appendChild(btn);
+    });
+    grupo.appendChild(row);
+
+    if (diaExpandido && dias.includes(diaExpandido)) {
+      const items = (porDia[diaExpandido] || []).slice().reverse();
+      const dt = parseFechaSheet(diaExpandido);
+      const totalDia = items.reduce((s, g) => s + Number(g[field] || 0), 0);
+
+      const detalle = document.createElement('div');
+      detalle.className = 'dia-detalle';
+
+      const encabezado = document.createElement('div');
+      encabezado.className = 'dia-detalle-encabezado';
+      encabezado.textContent = `${DIAS_SEMANA[dt.getDay()]} ${dt.getDate()} de ${MESES[dt.getMonth()]} — ${fmtMoney(totalDia, sym)}`;
+      detalle.appendChild(encabezado);
+
+      items.forEach((g) => {
+        const item = document.createElement('div');
+        item.className = 'dia-detalle-item';
+        item.innerHTML = `
+          <span class="ddi-info"><span class="ddi-cat">${esc(g.categoria)}</span>${esc(g.descripcion || 'Sin descripción')}</span>
+          <span class="ddi-monto">${fmtMoney(g[field], sym)}</span>
+        `;
+        detalle.appendChild(item);
+      });
+      grupo.appendChild(detalle);
+    }
+
+    container.appendChild(grupo);
+  });
+}
+
 async function refetchAll() {
   const [gastos, ingresos] = await Promise.all([api('/gastos'), api('/ingresos')]);
   state.gastos = gastos;
@@ -353,7 +475,7 @@ function renderReportes() {
     const q = filters.busqueda.trim().toLowerCase();
     detalle = detalle.filter((g) => (g.descripcion || '').toLowerCase().includes(q) || (g.categoria || '').toLowerCase().includes(q));
   }
-  detalle = detalle.slice().sort((a, b) => parseFechaSheet(b.fecha) - parseFechaSheet(a.fecha));
+  detalle = detalle.slice().reverse();
 
   const chip = document.getElementById('filtroCategoriaChip');
   if (filters.categoria) {
@@ -415,34 +537,8 @@ function renderReportes() {
     }
   }
 
-  const diarioTitulo = document.getElementById('tablaDiarioTitulo');
-  diarioTitulo.textContent = `Gasto por día${sufijoCategoria}`;
-  const totalsDia = sumBy(gastosFiltrados, (g) => g.fecha, (g) => Number(g[field] || 0));
-  delete totalsDia[''];
-  delete totalsDia.undefined;
-  const dias = Object.keys(totalsDia).filter(Boolean).sort((a, b) => b.localeCompare(a));
-  const diarioEmpty = document.getElementById('tablaDiarioEmpty');
-  const hoyISO = new Date().toISOString().slice(0, 10);
-  if (dias.length === 0) {
-    document.querySelector('#tablaDiario tbody').innerHTML = '';
-    diarioEmpty.style.display = 'block';
-  } else {
-    diarioEmpty.style.display = 'none';
-    const maxDia = Math.max(1, ...dias.map((d) => totalsDia[d]));
-    document.querySelector('#tablaDiario tbody').innerHTML = dias.map((d) => {
-      const dt = parseFechaSheet(d);
-      const diaLabel = dt ? DIAS_SEMANA[dt.getDay()] : '';
-      const pct = Math.max(3, (totalsDia[d] / maxDia) * 100);
-      return `<tr class="${d === hoyISO ? 'dia-hoy' : ''}">
-        <td>${esc(d)}</td>
-        <td>${diaLabel}</td>
-        <td class="td-bar-cell">
-          <span class="td-bar-track"><span class="td-bar-fill" style="width:${pct}%"></span></span>
-          <span class="td-bar-value">${fmtMoney(totalsDia[d], sym)}</span>
-        </td>
-      </tr>`;
-    }).join('');
-  }
+  document.getElementById('diasSemanaTitulo').textContent = `Gastos por día${sufijoCategoria}`;
+  renderDiasPorSemana(gastosFiltrados, sym, field, document.getElementById('semanasDias'), document.getElementById('semanasDiasEmpty'));
 
   const matrizGastos = filterByCategoriaYFecha(gastos);
   const matrizEmpty = document.getElementById('chartMatrizEmpty');
