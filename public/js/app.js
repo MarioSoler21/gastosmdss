@@ -415,20 +415,24 @@ function renderReportes() {
 
   const gastosPeriodo = filterByPeriod(gastos);
   const ingresosPeriodo = filterByPeriod(ingresos);
+  const gastosFiltrados = filters.categoria ? gastosPeriodo.filter((g) => g.categoria === filters.categoria) : gastosPeriodo;
+  const sufijoCategoria = filters.categoria ? ` — ${filters.categoria}` : '';
 
-  const totalGastos = gastosPeriodo.reduce((s, g) => s + Number(g[field] || 0), 0);
+  const totalGastos = gastosFiltrados.reduce((s, g) => s + Number(g[field] || 0), 0);
   const totalIngresos = ingresosPeriodo.reduce((s, i) => s + Number(i[field] || 0), 0);
-  const totalHormiga = gastosPeriodo.filter((g) => Number(g.hormigaFlag) === 1).reduce((s, g) => s + Number(g[field] || 0), 0);
+  const totalHormiga = gastosFiltrados.filter((g) => Number(g.hormigaFlag) === 1).reduce((s, g) => s + Number(g[field] || 0), 0);
   const hormigaPct = totalGastos > 0 ? (totalHormiga / totalGastos) * 100 : 0;
   const tasaAhorro = totalIngresos > 0 ? ((totalIngresos - totalGastos) / totalIngresos) * 100 : 0;
 
   document.getElementById('kpiIngresos').textContent = fmtMoney(totalIngresos, sym);
   document.getElementById('kpiGastos').textContent = fmtMoney(totalGastos, sym);
+  document.getElementById('kpiGastosLabel').textContent = `Gastos${sufijoCategoria}`;
   document.getElementById('kpiBalance').textContent = fmtMoney(totalIngresos - totalGastos, sym);
   document.getElementById('kpiAhorro').textContent = `${tasaAhorro.toFixed(1)}%`;
   document.getElementById('kpiAhorroCard').className = `card ${tasaAhorro >= 0 ? 'card-delta-down' : 'card-delta-up'}`;
   document.getElementById('kpiHormigaPct').textContent = `${hormigaPct.toFixed(1)}%`;
   document.getElementById('kpiHormigaTotal').textContent = fmtMoney(totalHormiga, sym);
+  document.getElementById('kpiHormigaLabel').textContent = `Gastos hormiga${sufijoCategoria}`;
 
   let promedioLabel = 'Gasto promedio diario';
   let promedioValue = 0;
@@ -443,10 +447,10 @@ function renderReportes() {
     promedioValue = totalGastos / 3;
   } else {
     promedioLabel = 'Gasto promedio mensual';
-    const mesesDistintos = new Set(gastosPeriodo.map((g) => monthKey(g.fecha)).filter(Boolean)).size || 1;
+    const mesesDistintos = new Set(gastosFiltrados.map((g) => monthKey(g.fecha)).filter(Boolean)).size || 1;
     promedioValue = totalGastos / mesesDistintos;
   }
-  document.getElementById('kpiPromedioLabel').textContent = promedioLabel;
+  document.getElementById('kpiPromedioLabel').textContent = `${promedioLabel}${sufijoCategoria}`;
   document.getElementById('kpiPromedio').textContent = fmtMoney(promedioValue, sym);
 
   const colorMap = buildCategoryColorMap(gastos);
@@ -460,8 +464,6 @@ function renderReportes() {
   }
   categoriaSelect.value = filters.categoria || '';
   categoriaSelect.classList.toggle('active', !!filters.categoria);
-
-  const gastosFiltrados = filters.categoria ? gastosPeriodo.filter((g) => g.categoria === filters.categoria) : gastosPeriodo;
 
   const totalsCat = sumBy(gastosPeriodo, (g) => g.categoria, (g) => Number(g[field] || 0));
   const catEntries = Object.entries(totalsCat).sort((a, b) => b[1] - a[1]);
@@ -522,7 +524,6 @@ function renderReportes() {
   const agruparPorSemana = fechaFiltroActiva
     ? (rangoDias === null || rangoDias <= 45)
     : (filters.period === 'mes' || filters.period === 'mesPasado');
-  const sufijoCategoria = filters.categoria ? ` — ${filters.categoria}` : '';
   if (agruparPorSemana) {
     periodoTitulo.textContent = `Gastos por semana${sufijoCategoria}`;
     let semanas;
